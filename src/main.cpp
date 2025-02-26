@@ -51,7 +51,7 @@
  * Channel Groups: 0 (zero) only
  * Recording Size:
  *    ATmega168:  532 (or lower)
- *    ATmega328:  1024 (or lower)
+ *    ATmega328:  1536 (or lower)
  *    ATmega2560: 7168 (or lower)
  * Noise Filter: doesn't matter
  * RLE: disabled (unchecked)
@@ -64,6 +64,12 @@
  *
  * Release: v0.17 October 5, 2023.
  *
+ * Makewise
+ *  Added reverse of logicdata buffer on send
+ *  Change ATmega328 recorder side from 1024 to 1536 (+512 samples) up to 1MHz and to 1280 (+256 samples) to 2MHz and 4 MHz
+ *  Some refactor to facilitate the alterations
+ *  
+ * Release: v0.18 Fev 26, 2025.
  */
 
 /*
@@ -150,21 +156,29 @@
  #define SUMP_GET_METADATA 0x04
  
  /* ATmega168:  532 (or lower)
-  * ATmega328:  1024 (or lower)
+  * ATmega328:  1536 (or lower)
   * ATmega2560: 7168 (or lower)
   */
  #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
  #define DEBUG_CAPTURE_SIZE 7168
  #define CAPTURE_SIZE 7168
+ #define CAPTURE_SIZE_B1 0x1C
+ #define CAPTURE_SIZE_B2 0x00
  #elif defined(__AVR_ATmega32U4__)
  #define DEBUG_CAPTURE_SIZE 2048
  #define CAPTURE_SIZE 2048
+ #define CAPTURE_SIZE_B1 0x08
+ #define CAPTURE_SIZE_B2 0x00
  #elif defined(__AVR_ATmega328P__)
- #define DEBUG_CAPTURE_SIZE 1024
- #define CAPTURE_SIZE 1024
+ #define DEBUG_CAPTURE_SIZE 1536
+ #define CAPTURE_SIZE 1536
+ #define CAPTURE_SIZE_B1 0x06
+ #define CAPTURE_SIZE_B2 0x00
  #else
  #define DEBUG_CAPTURE_SIZE 532
  #define CAPTURE_SIZE 532
+ #define CAPTURE_SIZE_B1 0x02
+ #define CAPTURE_SIZE_B2 0x14
  #endif
  
  #ifdef USE_PORTD
@@ -179,6 +193,9 @@
  
  //#define DEBUG_MENU
  //#define DEBUG
+
+ //The logic data is send in reverse if defined
+ #define REVERSE_LOGICDATA
  
  #ifdef DEBUG
  #define MAX_CAPTURE_SIZE DEBUG_CAPTURE_SIZE
@@ -517,7 +534,39 @@
  #endif /* DEBUG */
  }
  
- /*
+
+ void sendLogicData(){
+  unsigned int i;
+  #ifdef REVERSE_LOGICDATA
+    for (i = 0 ; i < readCount; i++) {      
+      #ifdef USE_PORTD
+        Serial.write(logicdata[logicIndex] >> 2);
+      #else
+        Serial.write(logicdata[logicIndex]);
+      #endif
+      if (logicIndex == 0 ) {
+        logicIndex = readCount-1;
+      } else{
+        logicIndex--;
+      }
+    }
+  #else
+    logicIndex++;
+  
+    for (i = 0 ; i < readCount; i++) {
+      if (logicIndex >= readCount) {
+        logicIndex = 0;
+      }
+    #ifdef USE_PORTD
+        Serial.write(logicdata[logicIndex++] >> 2);
+    #else
+        Serial.write(logicdata[logicIndex++]);
+    #endif
+      }
+      #endif
+ }
+
+  /*
   * This function samples data using a microsecond delay function.
   * It also has rudimentary trigger support where it will just sit in
   * a busy loop waiting for the trigger conditions to occur.
@@ -622,13 +671,8 @@
     * dump the samples back to the SUMP client.  nothing special
     * is done for any triggers, this is effectively the 0/100 buffer split.
     */
-   for (i = 0 ; i < readCount; i++) {
- #ifdef USE_PORTD
-     Serial.write(logicdata[i] >> 2);
- #else
-     Serial.write(logicdata[i]);
- #endif
-   }
+   logicIndex = 0;
+   sendLogicData();   
  }
  
  /*
@@ -697,13 +741,10 @@
        delay(delayTime);
      }
    }
-   for (i = 0 ; i < readCount; i++) {
- #ifdef USE_PORTD
-     Serial.write(logicdata[i] >> 2);
- #else
-     Serial.write(logicdata[i]);
- #endif
-   }
+
+
+   logicIndex = 0;
+   sendLogicData();   
  }
  
  /*
@@ -881,23 +922,9 @@
    /*
     * trigger has fired and we have read delayCount of samples after the
     * trigger fired.  triggerIndex now points to the trigger sample
-    * logicIndex now points to the last sample taken and logicIndex + 1
-    * is where we should start dumping since it is circular.
-    *
-    * our buffer starts one entry above the last read entry.
+    * logicIndex now points to the last sample taken
     */
-   logicIndex++;
- 
-   for (i = 0 ; i < readCount; i++) {
-     if (logicIndex >= readCount) {
-       logicIndex = 0;
-     }
- #ifdef USE_PORTD
-     Serial.write(logicdata[logicIndex++] >> 2);
- #else
-     Serial.write(logicdata[logicIndex++]);
- #endif
-   }
+   sendLogicData();   
  }
  
  /*
@@ -949,26 +976,15 @@
    Serial.write('0');
    Serial.write('.');
    Serial.write('1');
-   Serial.write('7');
+   Serial.write('8');
    Serial.write((uint8_t)0x00);
  
    /* sample memory */
    Serial.write((uint8_t)0x21);
    Serial.write((uint8_t)0x00);
    Serial.write((uint8_t)0x00);
- #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-   /* 7168 bytes */
-   Serial.write((uint8_t)0x1C);
-   Serial.write((uint8_t)0x00);
- #elif defined(__AVR_ATmega328P__)
-   /* 1024 bytes */
-   Serial.write((uint8_t)0x04);
-   Serial.write((uint8_t)0x00);
- #else
-   /* 532 bytes */
-   Serial.write((uint8_t)0x02);
-   Serial.write((uint8_t)0x14);
- #endif /* Mega */
+   Serial.write((uint8_t)CAPTURE_SIZE_B1);
+   Serial.write((uint8_t)CAPTURE_SIZE_B2);
  
    /* sample rate (4MHz) */
    Serial.write((uint8_t)0x23);

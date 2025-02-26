@@ -45,8 +45,6 @@
  */
 
 void captureInline4mhz() {
-  unsigned int i;
-
   /*
    * basic trigger, wait until all trigger conditions are met on port.
    * this needs further testing, but basic tests work as expected.
@@ -2140,7 +2138,7 @@ void captureInline4mhz() {
   logicdata[1023] = CHANPIN;
   INLINE_NOP;
 #endif
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) 
+#if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) 
   logicdata[1024] = CHANPIN;
   INLINE_NOP;
   logicdata[1025] = CHANPIN;
@@ -2653,6 +2651,8 @@ void captureInline4mhz() {
   INLINE_NOP;
   logicdata[1279] = CHANPIN;
   INLINE_NOP;
+  #endif
+  #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) 
   logicdata[1280] = CHANPIN;
   INLINE_NOP;
   logicdata[1281] = CHANPIN;
@@ -14441,13 +14441,9 @@ void captureInline4mhz() {
    * dump the samples back to the SUMP client.  nothing special
    * is done for any triggers, this is effectively the 0/100 buffer split.
    */
-  for (i = 0 ; i < readCount; i++) {
-#ifdef USE_PORTD
-    Serial.write(logicdata[i] >> 2);
-#else
-    Serial.write(logicdata[i]);
-#endif
-  }
+  logicIndex = 0;
+  sendLogicData();
+
 }
 
 
