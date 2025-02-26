@@ -45,7 +45,7 @@
  */
 
 void captureInline4mhz() {
-  unsigned int i;
+  signed int i;
 
   /*
    * basic trigger, wait until all trigger conditions are met on port.
@@ -14441,7 +14441,7 @@ void captureInline4mhz() {
    * dump the samples back to the SUMP client.  nothing special
    * is done for any triggers, this is effectively the 0/100 buffer split.
    */
-  for (i = 0 ; i < readCount; i++) {
+  for (i = readCount-1 ; i >= 0; i--) {
 #ifdef USE_PORTD
     Serial.write(logicdata[i] >> 2);
 #else

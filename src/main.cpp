@@ -177,8 +177,8 @@
  #define DEBUG_OFF PORTD = B00000000
  #endif /* USE_PORTD */
  
- //#define DEBUG_MENU
- //#define DEBUG
+ #define DEBUG_MENU
+ #define DEBUG
  
  #ifdef DEBUG
  #define MAX_CAPTURE_SIZE DEBUG_CAPTURE_SIZE
@@ -533,7 +533,7 @@
   */
  
  void captureMicro() {
-   unsigned int i;
+   signed int i;
  
    /*
     * basic trigger, wait until all trigger conditions are met on port.
@@ -622,7 +622,7 @@
     * dump the samples back to the SUMP client.  nothing special
     * is done for any triggers, this is effectively the 0/100 buffer split.
     */
-   for (i = 0 ; i < readCount; i++) {
+   for (i = readCount-1 ; i >= 0; i--) {
  #ifdef USE_PORTD
      Serial.write(logicdata[i] >> 2);
  #else
@@ -649,7 +649,7 @@
   * this basic functionality.
   */
  void captureMilli() {
-   unsigned int i = 0;
+   signed int i = 0;
  
    if (rleEnabled) {
      /*
@@ -697,7 +697,7 @@
        delay(delayTime);
      }
    }
-   for (i = 0 ; i < readCount; i++) {
+   for (i = readCount-1 ; i >= 0; i--) {
  #ifdef USE_PORTD
      Serial.write(logicdata[i] >> 2);
  #else
@@ -715,7 +715,7 @@
   *
   */
  void triggerMicro() {
-   unsigned int i = 0;
+   signed int i = 0;
  
    logicIndex = 0;
    triggerIndex = 0;
@@ -886,16 +886,16 @@
     *
     * our buffer starts one entry above the last read entry.
     */
-   logicIndex++;
+   //logicIndex++;
  
    for (i = 0 ; i < readCount; i++) {
-     if (logicIndex >= readCount) {
-       logicIndex = 0;
+     if (logicIndex < 0) {
+       logicIndex = readCount - 1;
      }
  #ifdef USE_PORTD
-     Serial.write(logicdata[logicIndex++] >> 2);
+     Serial.write(logicdata[logicIndex--] >> 2);
  #else
-     Serial.write(logicdata[logicIndex++]);
+     Serial.write(logicdata[logicIndex--]);
  #endif
    }
  }
@@ -1095,6 +1095,17 @@
    }
  }
  #endif /* DEBUG_MENU */
-
- #include "logic_analyzer_inline_2mhz.h"
- #include "logic_analyzer_inline_4mhz.h"
+ 
+ 
+ 
+#include "logic_analyzer_inline_2mhz.h"
+#include "logic_analyzer_inline_4mhz.h" 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
